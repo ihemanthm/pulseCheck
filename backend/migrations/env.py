@@ -1,4 +1,5 @@
 """Alembic environment configuration."""
+import os
 import asyncio
 from logging.config import fileConfig
 
@@ -6,7 +7,6 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
-from app.config import settings
 from app.db import Base
 import app.models  # noqa: F401
 
@@ -17,10 +17,16 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+# Get database URL from environment or config
+database_url = os.getenv("DATABASE_URL")
+if not database_url:
+    from app.config import settings
+    database_url = settings.database_url
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = settings.database_url
+    url = database_url
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -42,7 +48,7 @@ def do_run_migrations(connection):
 async def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
     connectable = create_async_engine(
-        settings.database_url,
+        database_url,
         poolclass=pool.NullPool,
     )
 

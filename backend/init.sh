@@ -5,11 +5,13 @@ set -e
 echo "Starting PulseCheck Backend..."
 echo "Running database migrations..."
 
-# Run alembic migrations
+# Set working directory
 cd /app
-alembic upgrade head
 
-echo "Migrations complete! Starting server..."
+# Run alembic migrations with explicit config file location
+alembic -c migrations/alembic.ini upgrade head
+
+echo "✓ Migrations complete! Starting server..."
 
 # Start the server
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000
