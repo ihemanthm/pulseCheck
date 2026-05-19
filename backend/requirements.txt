@@ -1,0 +1,26 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+asyncpg
+alembic
+pydantic
+pydantic-settings
+python-dotenv
+httpx
+pandas
+boto3
+structlog
+slowapi
+bcrypt
+pyjwt
+psycopg2-binary
+python-multipart
+
+# Development & Testing
+pytest
+pytest-asyncio
+pytest-httpx
+pytest-cov
+black
+flake8
+mypy

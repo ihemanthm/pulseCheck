@@ -1,0 +1,115 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#0f172a] text-slate-100 font-sans antialiased selection:bg-primary-500/30 selection:text-primary-100;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.08) 0px, transparent 50%),
+      radial-gradient(at 50% 0%, rgba(37, 99, 235, 0.08) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  @apply w-2 h-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-700/50 rounded-full hover:bg-slate-600 transition-colors;
+}
+
+/* Glassmorphism Styles */
+.glass-panel {
+  @apply bg-slate-900/60 backdrop-blur-md border border-slate-800/80 shadow-glass rounded-xl;
+}
+
+.glass-panel-hover {
+  @apply transition-all duration-300 hover:bg-slate-900/80 hover:border-slate-700/60 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-0.5;
+}
+
+.glass-card {
+  @apply bg-slate-800/40 border border-slate-700/30 rounded-lg p-5 transition-all duration-300;
+}
+
+.glass-input {
+  @apply bg-slate-950/50 border border-slate-800 focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50 rounded-lg px-4 py-2.5 text-slate-100 placeholder-slate-500 outline-none transition-all duration-200;
+}
+
+/* Animations are auto-generated as utilities by tailwind.config.js */
+
+/* Active Navigation Glow */
+.nav-link-active {
+  @apply relative text-primary-400 bg-primary-950/40 border border-primary-500/30 shadow-[0_0_15px_rgba(37,99,235,0.1)];
+}
+
+/* Custom Status Badges */
+.status-badge {
+  @apply px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide flex items-center gap-1.5 w-fit border;
+}
+
+.status-pending {
+  @apply bg-slate-800/80 text-slate-300 border-slate-700/60;
+}
+
+.status-scheduled {
+  @apply bg-blue-950/40 text-blue-300 border-blue-800/40;
+}
+
+.status-in-progress {
+  @apply bg-purple-950/40 text-purple-300 border-purple-800/40;
+}
+
+.status-completed {
+  @apply bg-emerald-950/40 text-emerald-300 border-emerald-800/40;
+}
+
+.status-failed {
+  @apply bg-rose-950/40 text-rose-300 border-rose-800/40;
+}
+
+.status-no-answer {
+  @apply bg-amber-950/40 text-amber-300 border-amber-800/40;
+}
+
+/* Dashboard Metric Cards decoration line */
+.metric-card-glow-blue {
+  @apply relative overflow-hidden;
+}
+.metric-card-glow-blue::before {
+  content: '';
+  @apply absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-primary-500 to-secondary-500;
+}
+
+.metric-card-glow-purple {
+  @apply relative overflow-hidden;
+}
+.metric-card-glow-purple::before {
+  content: '';
+  @apply absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-secondary-500 to-pink-500;
+}
+
+.metric-card-glow-green {
+  @apply relative overflow-hidden;
+}
+.metric-card-glow-green::before {
+  content: '';
+  @apply absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-emerald-500 to-teal-500;
+}
+
+.metric-card-glow-amber {
+  @apply relative overflow-hidden;
+}
+.metric-card-glow-amber::before {
+  content: '';
+  @apply absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-amber-500 to-orange-500;
+}

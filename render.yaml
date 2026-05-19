@@ -1,0 +1,73 @@
+services:
+  # 1. FastAPI Backend Web Service
+  - type: web
+    name: pulsecheck-backend
+    env: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    plan: free
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      
+      # Database connection string from the database resource below
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pulsecheck-db
+          property: connectionString
+
+      # JWT Secret (Render automatically generates a secure random string)
+      - key: JWT_SECRET
+        generateValue: true
+
+      # Webhook Secret (Render automatically generates a secure random string)
+      - key: WEBHOOK_SECRET
+        generateValue: true
+
+      # Bolna AI Integration (User fills these in the Render UI)
+      - key: BOLNA_API_KEY
+        sync: false
+      - key: BOLNA_AGENT_ID
+        sync: false
+      - key: BOLNA_BASE_URL
+        value: https://api.bolna.ai
+
+      # AWS S3 Configuration (User fills these in the Render UI)
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: ap-south-1
+      - key: S3_BUCKET_NAME
+        sync: false
+
+      # Frontend URL points dynamically to the deployed frontend static site
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: pulsecheck-frontend
+          property: url
+
+  # 2. Vite React Frontend Static Site
+  - type: web
+    name: pulsecheck-frontend
+    env: static
+    publishDir: frontend/dist
+    buildCommand: cd frontend && npm install && npm run build
+    envVars:
+      # Link VITE_API_URL to the backend web service URL
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: pulsecheck-backend
+          property: url
+
+databases:
+  # 3. PostgreSQL Database
+  - name: pulsecheck-db
+    databaseName: pulsecheck
+    user: pulsecheck
+    plan: free

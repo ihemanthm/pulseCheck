@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pulsecheck_postgres
+    environment:
+      POSTGRES_USER: pulsecheck
+      POSTGRES_PASSWORD: pulsecheck_password
+      POSTGRES_DB: pulsecheck
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulsecheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pulsecheck_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pulsecheck_backend
+    env_file: ./backend/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - pulsecheck_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: pulsecheck_frontend
+    env_file: ./frontend/.env
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev
+    networks:
+      - pulsecheck_network
+
+volumes:
+  postgres_data:
+
+networks:
+  pulsecheck_network:
+    driver: bridge
