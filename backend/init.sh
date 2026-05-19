@@ -9,7 +9,7 @@ echo "Running database migrations..."
 cd /app
 
 # Run alembic migrations with explicit config file location
-alembic -c migrations/alembic.ini upgrade head
+alembic upgrade head
 
 echo "✓ Migrations complete! Starting server..."
 

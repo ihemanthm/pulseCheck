@@ -22,7 +22,7 @@ database_url = os.getenv("DATABASE_URL")
 if not database_url:
     from app.config import settings
     database_url = settings.database_url
-
+database_url.replace("postgresql+asyncpg://", "postgresql://")
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
