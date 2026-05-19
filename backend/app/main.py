@@ -19,24 +19,36 @@ app = FastAPI(
 )
 
 
-# Startup event for database seeding
+# Startup event for database migrations and seeding
 @app.on_event("startup")
 async def startup_event():
-    """Run seed data on startup if database is empty"""
+    """Run database migrations and seed data on startup"""
     try:
         import sys
         from pathlib import Path
         
-        # Add parent directory to path to import scripts
+        # Add parent directory to path to import scripts and modules
         backend_root = Path(__file__).parent.parent
         if str(backend_root) not in sys.path:
             sys.path.insert(0, str(backend_root))
+
+        # Programmatically run Alembic migrations
+        logger.info("Running database migrations programmatically...")
+        from alembic.config import Config
+        from alembic import command
         
+        alembic_cfg = Config(str(backend_root / "migrations" / "alembic.ini"))
+        alembic_cfg.set_main_option("script_location", str(backend_root / "migrations"))
+        alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
+        command.upgrade(alembic_cfg, "head")
+        logger.info("Database migrations completed successfully!")
+        
+        # Seed data
         from scripts.seed_data import main as seed_main
         logger.info("Checking if database needs seeding...")
         await seed_main()
     except Exception as e:
-        logger.warning(f"Seed data initialization skipped: {e}")
+        logger.warning(f"Database initialization or seeding skipped/failed: {e}")
 
 
 # Add state and limiter
