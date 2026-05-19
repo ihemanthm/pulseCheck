@@ -22,25 +22,29 @@ database_url = os.getenv("DATABASE_URL")
 if not database_url:
     from app.config import settings
     database_url = settings.database_url
-database_url.replace("postgresql+asyncpg://", "postgresql://")
+
+# Normalize URL: Supabase gives "postgres://", SQLAlchemy needs "postgresql://"
+database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+# Ensure asyncpg driver is specified for create_async_engine
+if "postgresql+asyncpg://" not in database_url:
+    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = database_url
     context.configure(
-        url=url,
+        url=database_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
-
     with context.begin_transaction():
         context.run_migrations()
 
 
 def do_run_migrations(connection):
     context.configure(connection=connection, target_metadata=target_metadata)
-
     with context.begin_transaction():
         context.run_migrations()
 
@@ -51,10 +55,8 @@ async def run_migrations_online() -> None:
         database_url,
         poolclass=pool.NullPool,
     )
-
     async with connectable.begin() as connection:
         await connection.run_sync(do_run_migrations)
-
     await connectable.dispose()
 
 
