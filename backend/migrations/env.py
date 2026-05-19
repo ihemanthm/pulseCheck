@@ -1,5 +1,6 @@
 """Alembic environment configuration."""
 import os
+import ssl
 import asyncio
 from logging.config import fileConfig
 
@@ -23,10 +24,10 @@ if not database_url:
     from app.config import settings
     database_url = settings.database_url
 
-# Normalize URL: Supabase gives "postgres://", SQLAlchemy needs "postgresql://"
+# Normalize scheme: "postgres://" -> "postgresql://"
 database_url = database_url.replace("postgres://", "postgresql://", 1)
 
-# Ensure asyncpg driver is specified for create_async_engine
+# Ensure asyncpg driver dialect
 if "postgresql+asyncpg://" not in database_url:
     database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
@@ -51,12 +52,28 @@ def do_run_migrations(connection):
 
 async def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
+
+    # Strip sslmode query param — asyncpg rejects it, we pass ssl via connect_args
+    clean_url = database_url
+    for param in ["?sslmode=require", "&sslmode=require",
+                  "?sslmode=prefer", "&sslmode=prefer",
+                  "?sslmode=disable", "&sslmode=disable"]:
+        clean_url = clean_url.replace(param, "")
+
+    # SSL context for Supabase (requires SSL but has a self-signed cert)
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+
     connectable = create_async_engine(
-        database_url,
+        clean_url,
         poolclass=pool.NullPool,
+        connect_args={"ssl": ssl_context},
     )
+
     async with connectable.begin() as connection:
         await connection.run_sync(do_run_migrations)
+
     await connectable.dispose()
 
 
