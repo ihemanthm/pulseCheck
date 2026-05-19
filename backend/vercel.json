@@ -12,8 +12,5 @@
       "dest": "api/index.py"
     }
   ],
-  "env": {
-    "PYTHONUNBUFFERED": "1"
-  },
   "buildCommand": "pip install -r requirements.txt && python scripts/vercel_build.py"
 }

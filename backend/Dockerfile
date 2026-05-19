@@ -16,9 +16,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app code
 COPY . .
 
+# Make init script executable
+RUN chmod +x init.sh
+
 # Expose port
 EXPOSE 8000
 
-# Run migrations and start server
-# Note: Alembic will be run programmatically in the FastAPI startup event
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run init script which runs migrations then starts server
+CMD ["./init.sh"]
