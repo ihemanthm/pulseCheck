@@ -62,7 +62,8 @@ def run_migrations():
         if "+asyncpg" in alembic_db_url:
             alembic_db_url = alembic_db_url.replace("+asyncpg://", "://")
         
-        alembic_cfg = Config(str(backend_root / "migrations" / "alembic.ini"))
+        alembic_ini_path = backend_root / "migrations" / "alembic.ini"
+        alembic_cfg = Config(str(alembic_ini_path))
         alembic_cfg.set_main_option("script_location", str(backend_root / "migrations"))
         alembic_cfg.set_main_option("sqlalchemy.url", alembic_db_url)
         
