@@ -3,13 +3,21 @@ from sqlalchemy.orm import declarative_base
 from app.config import settings
 import ssl
 
+# SSL context for Supabase (self-signed cert)
 ssl_context = ssl.create_default_context()
 ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
+# Strip sslmode query param — asyncpg rejects it, we pass ssl via connect_args
+database_url = settings.database_url
+for param in ["?sslmode=require", "&sslmode=require",
+              "?sslmode=prefer", "&sslmode=prefer",
+              "?sslmode=disable", "&sslmode=disable"]:
+    database_url = database_url.replace(param, "")
+
 # Create async engine
 engine = create_async_engine(
-    settings.database_url,
+    database_url,
     connect_args={"ssl": ssl_context},
     echo=False,
     future=True,

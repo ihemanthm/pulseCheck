@@ -11,6 +11,12 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
+# Add parent directory to path so we can import app modules
+# Handle both local (backend/scripts/) and Docker (/app/scripts/) execution
+backend_dir = Path(__file__).parent.parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -162,9 +168,23 @@ async def seed_orders(session: AsyncSession) -> bool:
 async def main():
     """Main seed function."""
     try:
+        # Strip sslmode query param — asyncpg rejects it
+        database_url = settings.database_url
+        for param in ["?sslmode=require", "&sslmode=require",
+                      "?sslmode=prefer", "&sslmode=prefer",
+                      "?sslmode=disable", "&sslmode=disable"]:
+            database_url = database_url.replace(param, "")
+        
+        # SSL context for Supabase
+        import ssl
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
         # Create async engine
         engine = create_async_engine(
-            settings.database_url,
+            database_url,
+            connect_args={"ssl": ssl_context},
             echo=False,
             pool_size=10,
             max_overflow=20,
