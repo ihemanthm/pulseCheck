@@ -25,7 +25,7 @@ import {
   User,
   ShoppingBag
 } from 'lucide-react'
-import Modal from '../components/Common/Modal'
+import Modal from '../components/common/Modal'
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([])

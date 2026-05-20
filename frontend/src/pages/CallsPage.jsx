@@ -20,7 +20,7 @@ import {
   HelpCircle,
   AlertCircle
 } from 'lucide-react'
-import Modal from '../components/Common/Modal'
+import Modal from '../components/common/Modal'
 
 export default function CallsPage() {
   const [calls, setCalls] = useState([])
