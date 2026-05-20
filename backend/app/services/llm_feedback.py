@@ -176,6 +176,6 @@ IMPORTANT:
             "call_language": gemini_response.get("call_language"),
             "verbatim_quote": gemini_response.get("verbatim_quote"),
             "review_status": "auto_extracted",  # Mark as auto-extracted for later review
-            # Store full Gemini response for reference
-            "gemini_extraction": gemini_response
+            # Store full LLM response for reference
+            "llm_extraction_data": gemini_response
         }
