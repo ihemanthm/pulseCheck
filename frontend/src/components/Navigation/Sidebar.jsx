@@ -8,7 +8,8 @@ import {
   BarChart3, 
   ShieldCheck, 
   Settings,
-  ArrowRight
+  ArrowRight,
+  MessageSquare
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { ordersAPI } from '../../api/orders'
@@ -45,6 +46,7 @@ export default function Sidebar({ isOpen, toggleCollapse, isCollapsed }) {
     { path: '/orders', label: 'Orders', icon: ClipboardList, roles: ['operator', 'reviewer', 'admin'] },
     { path: '/upload', label: 'Upload CSV', icon: UploadCloud, roles: ['operator', 'admin'] },
     { path: '/calls', label: 'Call Campaigns', icon: Phone, roles: ['operator', 'reviewer', 'admin'] },
+    { path: '/feedbacks', label: 'Feedbacks', icon: MessageSquare, roles: ['operator', 'reviewer', 'admin'] },
     { path: '/analytics', label: 'Analytics', icon: BarChart3, roles: ['reviewer', 'admin'] },
     { path: '/review', label: 'Reviews', icon: ShieldCheck, roles: ['reviewer', 'admin'] },
   ]

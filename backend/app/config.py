@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Webhook
     webhook_secret: Optional[str] = None
     
+    # LLM (Gemini)
+    gemini_api_key: Optional[str] = None
+    
     # Rate Limiting
     rate_limit_enabled: bool = True
     

@@ -11,6 +11,7 @@ import OrdersPage from './pages/OrdersPage'
 import CallsPage from './pages/CallsPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import ReviewPage from './pages/ReviewPage'
+import FeedbacksPage from './pages/FeedbacksPage'
 import SettingsPage from './pages/SettingsPage'
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
                       <Route path="/upload" element={<UploadPage />} />
                       <Route path="/orders" element={<OrdersPage />} />
                       <Route path="/calls" element={<CallsPage />} />
+                      <Route path="/feedbacks" element={<FeedbacksPage />} />
                       <Route path="/analytics" element={<AnalyticsPage />} />
                       <Route path="/review" element={<ReviewPage />} />
                       <Route path="/settings" element={<SettingsPage />} />

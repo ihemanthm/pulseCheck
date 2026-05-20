@@ -4,7 +4,8 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.middleware import setup_middleware, limiter
 from app.utils.logger import setup_logging, get_logger
-from app.routers import auth, orders, calls
+from app.routers import auth, orders, calls, analytics, feedback
+from app.services.llm_feedback import LLMFeedbackExtractor
 
 logger = get_logger(__name__)
 
@@ -22,7 +23,14 @@ app = FastAPI(
 # Startup event
 @app.on_event("startup")
 async def startup_event():
-    """Simple startup - migrations are handled by init script"""
+    """Startup - migrations handled by init script, initialize LLM service"""
+    # Initialize LLM service if API key is available
+    if settings.gemini_api_key:
+        LLMFeedbackExtractor.initialize()
+        logger.info("LLM feedback extraction initialized")
+    else:
+        logger.info("LLM feedback extraction disabled (no GEMINI_API_KEY)")
+    
     logger.info("Application startup complete")
 
 
@@ -43,6 +51,8 @@ setup_middleware(app)
 app.include_router(auth.router, prefix="/api")
 app.include_router(orders.router, prefix="/api")
 app.include_router(calls.router, prefix="/api")
+app.include_router(analytics.router, prefix="/api")
+app.include_router(feedback.router, prefix="/api")
 
 # Health check endpoint
 @app.get("/health")

@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import CallLog, Feedback, Order, AuditLog
 from app.services.sentiment import SentimentService
+from app.services.llm_feedback import LLMFeedbackExtractor
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -29,7 +30,10 @@ class WebhookProcessor:
         db_session: AsyncSession
     ) -> bool:
         """
-        Process incoming Bolna webhook with idempotency.
+        Process incoming Bolna webhook with idempotency and update support.
+        
+        If webhook is received for the first time, process feedback and update order status.
+        If webhook is received again, update the data fields but skip feedback reprocessing.
         
         Args:
             payload: Bolna webhook payload (dict converted from request)
@@ -55,34 +59,23 @@ class WebhookProcessor:
             logger.warning("webhook_call_not_found", bolna_call_id=bolna_call_id)
             return False
         
-        # Idempotency guard: skip if already processed
-        if call_log.webhook_received_at:
-            logger.info(
-                "webhook_already_processed",
-                bolna_call_id=bolna_call_id,
-                previous_received_at=call_log.webhook_received_at.isoformat()
-            )
-            return True  # Return True since idempotent
+        # Track if this is the first webhook for this call
+        is_first_webhook = call_log.webhook_received_at is None
         
-        # Map Bolna status to internal status
+        # Always update call content and metrics from payload
+        # (allows for webhook retries with updated data)
         bolna_status = payload.get("status", "")
         call_log.call_status = WebhookProcessor._map_bolna_status(bolna_status)
-        
-        # Store call content and metrics
         call_log.conversation_duration = payload.get("conversation_duration")
         call_log.transcript = payload.get("transcript")
         call_log.summary = payload.get("summary")
         call_log.agent_id = payload.get("agent_id")
-        
-        # Store extraction data and costs
         call_log.extracted_data = payload.get("extracted_data")
         call_log.total_cost = payload.get("total_cost")
         call_log.cost_breakdown = payload.get("cost_breakdown")
         call_log.usage_breakdown = payload.get("usage_breakdown")
-        
-        # Mark webhook as received
-        call_log.webhook_received_at = datetime.utcnow()
         call_log.retry_count = payload.get("retry_count", 0)
+        call_log.webhook_received_at = datetime.utcnow()
         
         # Get order for status updates
         stmt = select(Order).where(Order.id == call_log.order_id)
@@ -93,14 +86,29 @@ class WebhookProcessor:
             logger.error("webhook_order_not_found", order_id=call_log.order_id)
             return False
         
-        # Process feedback from extracted_data if call completed
+        # Process feedback on FIRST webhook if call is completed
+        # Always trigger LLM extraction for completed calls, regardless of extracted_data
         feedback_created = False
-        if call_log.call_status == "completed" and call_log.extracted_data:
+        if call_log.call_status == "completed":
+            logger.info(
+                "processing_feedback_for_completed_call",
+                bolna_call_id=bolna_call_id,
+                has_extracted_data=call_log.extracted_data is not None,
+                has_transcript=call_log.transcript is not None,
+                has_summary=call_log.summary is not None
+            )
             feedback_created = await WebhookProcessor._process_feedback(
                 payload, call_log, order, db_session
             )
+        elif not is_first_webhook and call_log.feedback_id:
+            # Update existing feedback if this is a subsequent webhook
+            logger.info(
+                "webhook_reprocessing_existing",
+                bolna_call_id=bolna_call_id,
+                has_feedback=call_log.feedback_id is not None
+            )
         
-        # Update order status based on call outcome
+        # Update order status based on call outcome (on all webhooks)
         if call_log.call_status == "completed":
             order.call_status = "completed"
         elif call_log.call_status in ("call_disconnected",):
@@ -121,6 +129,7 @@ class WebhookProcessor:
             details={
                 "bolna_call_id": bolna_call_id,
                 "call_status": call_log.call_status,
+                "is_first_webhook": is_first_webhook,
                 "has_extraction": call_log.extracted_data is not None,
                 "conversation_duration": call_log.conversation_duration,
                 "total_cost": call_log.total_cost,
@@ -132,6 +141,7 @@ class WebhookProcessor:
         logger.info(
             "webhook_processed",
             bolna_call_id=bolna_call_id,
+            is_first_webhook=is_first_webhook,
             call_status=call_log.call_status,
             order_id=str(order.id),
             conversation_duration=call_log.conversation_duration,
@@ -148,7 +158,12 @@ class WebhookProcessor:
         db_session: AsyncSession
     ) -> bool:
         """
-        Process feedback from extracted_data in completed call.
+        Process feedback from completed call.
+        
+        Priority order:
+        1. Use extracted_data from webhook if available
+        2. If missing, use LLM to extract from transcript + summary
+        3. Fall back to minimal feedback from available data
         
         Args:
             payload: Full Bolna webhook payload
@@ -161,32 +176,88 @@ class WebhookProcessor:
         """
         
         extracted_data = payload.get("extracted_data", {})
+        feedback_data = {"order_id": order.id}
         
-        # Extract NPS and sentiment from extracted_data
-        feedback_data = {
-            "order_id": order.id,
-            # NPS & Sentiment from extracted_data
-            "nps_score": extracted_data.get("nps_score"),
-            "nps_category": WebhookProcessor._categorize_nps(extracted_data.get("nps_score")),
-            "overall_sentiment": extracted_data.get("sentiment"),
-            # Feedback details
-            "primary_feedback": extracted_data.get("primary_feedback"),
-            "issue_raised": extracted_data.get("issue_raised"),
-            "positive_highlight": extracted_data.get("positive_highlight"),
-            # Flags
-            "escalation_flag": extracted_data.get("escalation_flag", False),
-            "callback_requested": extracted_data.get("callback_requested", False),
-            "callback_datetime": extracted_data.get("callback_datetime"),
-            # Call metadata
-            "call_language": extracted_data.get("call_language"),
-            "verbatim_quote": extracted_data.get("verbatim_quote"),
+        # Step 1: Try to use Bolna's extracted_data if available
+        if extracted_data and any(extracted_data.values()):
+            logger.info("using_bolna_extracted_data", call_log_id=str(call_log.id))
+            feedback_data.update({
+                "nps_score": extracted_data.get("nps_score"),
+                "nps_category": WebhookProcessor._categorize_nps(extracted_data.get("nps_score")),
+                "overall_sentiment": extracted_data.get("sentiment"),
+                "primary_feedback": extracted_data.get("primary_feedback"),
+                "issue_raised": extracted_data.get("issue_raised"),
+                "positive_highlight": extracted_data.get("positive_highlight"),
+                "escalation_flag": extracted_data.get("escalation_flag", False),
+                "callback_requested": extracted_data.get("callback_requested", False),
+                "callback_datetime": extracted_data.get("callback_datetime"),
+                "call_language": extracted_data.get("call_language"),
+                "verbatim_quote": extracted_data.get("verbatim_quote"),
+                "review_status": "pending"
+            })
+        # Step 2: If extracted_data missing, use LLM for extraction
+        elif call_log.transcript and call_log.summary:
+            logger.info(
+                "using_llm_feedback_extraction",
+                call_log_id=str(call_log.id),
+                transcript_length=len(call_log.transcript) if call_log.transcript else 0
+            )
+            
+            # Prepare customer context for LLM
+            customer_context = {
+                "customer_name": order.customer_name,
+                "product_name": order.product_name,
+                "purchase_date": str(order.purchase_date) if order.purchase_date else None,
+                "amount": str(order.amount_paid) if order.amount_paid else None,
+            }
+            
+            # Extract feedback using LLM
+            llm_response = await LLMFeedbackExtractor.extract_feedback(
+                transcript=call_log.transcript,
+                summary=call_log.summary,
+                customer_context=customer_context
+            )
+            
+            if llm_response:
+                # Map LLM response to feedback fields
+                llm_feedback = LLMFeedbackExtractor.map_gemini_to_feedback(llm_response)
+                feedback_data.update(llm_feedback)
+                
+                # Store full LLM extraction for reference
+                feedback_data["llm_extraction_data"] = llm_response
+                
+                # Also update extracted_data in call_log if missing
+                if not call_log.extracted_data:
+                    call_log.extracted_data = llm_response
+                    logger.info("filled_extracted_data_from_llm", call_log_id=str(call_log.id))
+            else:
+                # LLM extraction failed, use basic data
+                logger.warning(
+                    "llm_extraction_failed_using_basic_data",
+                    call_log_id=str(call_log.id)
+                )
+                feedback_data.update({
+                    "overall_sentiment": "neutral",
+                    "review_status": "pending"
+                })
+        else:
+            # No data available for extraction
+            logger.warning(
+                "no_data_for_feedback_extraction",
+                call_log_id=str(call_log.id),
+                has_transcript=bool(call_log.transcript),
+                has_summary=bool(call_log.summary),
+                has_extracted_data=bool(extracted_data)
+            )
+            feedback_data.update({"review_status": "pending"})
+        
+        # Add transcript and summary always
+        feedback_data.update({
             "transcript": call_log.transcript,
             "call_summary": call_log.summary,
-            # Review status
-            "review_status": "pending"
-        }
+        })
         
-        # Enrich sentiment analysis
+        # Enrich with sentiment analysis
         feedback_data = SentimentService.enrich_feedback(feedback_data)
         
         # Determine if manual review needed
@@ -194,7 +265,7 @@ class WebhookProcessor:
             SentimentService.should_flag_manual_review(feedback_data)
         )
         
-        # Check for existing feedback (should not happen with unique call_log_id)
+        # Check for existing feedback
         stmt = select(Feedback).where(Feedback.call_log_id == call_log.id)
         result = await db_session.execute(stmt)
         existing_feedback = result.scalar_one_or_none()
@@ -226,6 +297,7 @@ class WebhookProcessor:
             call_log_id=str(call_log.id),
             is_new=is_new,
             nps_score=feedback_data.get("nps_score"),
+            sentiment=feedback_data.get("overall_sentiment"),
             manual_review_required=feedback_data.get("manual_review_required")
         )
         

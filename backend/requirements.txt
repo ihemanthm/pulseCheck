@@ -15,6 +15,7 @@ bcrypt
 pyjwt
 psycopg2-binary
 python-multipart
+google-generativeai
 
 # Development & Testing
 pytest

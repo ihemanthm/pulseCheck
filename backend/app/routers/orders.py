@@ -7,7 +7,7 @@ from datetime import datetime
 import uuid
 
 from app.db import get_db
-from app.models import User, CSVUpload, Order
+from app.models import User, CSVUpload, Order, CallLog, Feedback
 from app.schemas.orders import OrderResponse, CSVUploadResponse, BulkTriggerRequest, BulkTriggerResponse
 from app.services.csv_processor import CSVProcessor
 from app.services.s3 import S3Service
@@ -248,9 +248,64 @@ async def get_order_detail(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Order not found"
         )
+        
+    # Fetch call logs for this order
+    call_logs_result = await db.execute(
+        select(CallLog)
+        .where(CallLog.order_id == order_id)
+        .order_by(CallLog.triggered_at.desc())
+    )
+    call_logs = call_logs_result.scalars().all()
+    
+    # Fetch feedback for this order
+    feedback_result = await db.execute(
+        select(Feedback)
+        .where(Feedback.order_id == order_id)
+    )
+    feedback = feedback_result.scalar_one_or_none()
+    
+    # Format call logs
+    formatted_call_logs = [
+        {
+            "id": str(log.id),
+            "bolna_call_id": log.bolna_call_id,
+            "call_status": log.call_status,
+            "triggered_at": log.triggered_at.isoformat(),
+            "connected_at": log.connected_at.isoformat() if log.connected_at else None,
+            "ended_at": log.ended_at.isoformat() if log.ended_at else None,
+            "duration_seconds": log.conversation_duration,
+            "transcript": log.transcript,
+            "summary": log.summary
+        }
+        for log in call_logs
+    ]
+    
+    # Format feedback
+    formatted_feedback = None
+    if feedback:
+        formatted_feedback = {
+            "id": str(feedback.id),
+            "call_log_id": str(feedback.call_log_id),
+            "order_id": str(feedback.order_id),
+            "nps_score": float(feedback.nps_score) if feedback.nps_score is not None else None,
+            "nps_category": feedback.nps_category,
+            "overall_sentiment": feedback.overall_sentiment,
+            "primary_feedback": feedback.primary_feedback,
+            "issue_raised": feedback.issue_raised,
+            "positive_highlight": feedback.positive_highlight,
+            "escalation_flag": feedback.escalation_flag,
+            "manual_review_required": feedback.manual_review_required,
+            "callback_requested": feedback.callback_requested,
+            "call_language": feedback.call_language,
+            "verbatim_quote": feedback.verbatim_quote,
+            "transcript": feedback.transcript,
+            "call_summary": feedback.call_summary,
+            "review_status": feedback.review_status,
+            "created_at": feedback.created_at.isoformat()
+        }
     
     return {
         "order": OrderResponse.model_validate(order),
-        "call_logs": [],  # Will implement with joins
-        "feedback": None
+        "call_logs": formatted_call_logs,
+        "feedback": formatted_feedback
     }

@@ -19,5 +19,17 @@ export const feedbackAPI = {
   getFeedbackDetail: async (feedbackId) => {
     const response = await axiosInstance.get(`/feedback/${feedbackId}`)
     return response.data
+  },
+
+  getFeedbacks: async (sentiment = '', npsCategory = '', search = '', page = 1, pageSize = 50) => {
+    const params = new URLSearchParams()
+    if (sentiment) params.append('sentiment', sentiment)
+    if (npsCategory) params.append('nps_category', npsCategory)
+    if (search) params.append('search', search)
+    params.append('page', page)
+    params.append('page_size', pageSize)
+    
+    const response = await axiosInstance.get(`/feedback?${params.toString()}`)
+    return response.data
   }
 }
