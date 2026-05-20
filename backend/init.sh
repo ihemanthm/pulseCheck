@@ -5,11 +5,12 @@ set -e
 echo "Starting PulseCheck Backend..."
 echo "Running database migrations..."
 
-# Set working directory
+# Ensure we're in the app directory for Python imports to work
 cd /app
 
-# Run alembic migrations with explicit config file location
-alembic -c migrations/alembic.ini upgrade head
+# Run alembic migrations
+# Use absolute path to config and ensure PYTHONPATH includes app directory
+PYTHONPATH=/app alembic -c /app/migrations/alembic.ini upgrade head
 
 echo "✓ Migrations complete! Starting server..."
 

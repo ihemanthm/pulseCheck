@@ -203,30 +203,15 @@ async def list_calls(
 @router.post("/webhook", status_code=200)
 async def receive_webhook(
     payload: dict,
-    request: Request,
     background_tasks: BackgroundTasks = None,
     db: AsyncSession = Depends(get_db)
 ):
     """
     Receive webhook from Bolna API.
     
-    Validates webhook using secret key in header.
+    No authentication required - webhook is called from Bolna servers.
     Returns 200 immediately, processes in background for idempotency.
     """
-    from app.config import settings
-    
-    # Extract and validate webhook secret from header
-    webhook_secret = request.headers.get("X-Webhook-Secret")
-    
-    if not webhook_secret or webhook_secret != settings.webhook_secret:
-        logger.error(
-            "webhook_invalid_secret",
-            provided_secret=webhook_secret[:10] if webhook_secret else None
-        )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid webhook secret"
-        )
     
     async def process_webhook_async():
         try:
